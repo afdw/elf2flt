@@ -13,13 +13,13 @@ CC = @CC@
 CPU = @target_cpu@
 TARGET = @target_alias@
 SYMBOL_PREFIX = @SYMBOL_PREFIX@
-CFLAGS = @CFLAGS@
+CFLAGS = @CFLAGS@ @DEPS_CFLAGS@
 INCLUDES = -I$(srcdir) -Ibfd-headers @zlib_include_dir@
 BFD_INCLUDE_DIR = @bfd_include_dir@
 BINUTILS_INCLUDE_DIR = @binutils_include_dir@
 CPPFLAGS = @CPPFLAGS@ $(DEFS) $(INCLUDES)
 LDFLAGS = @LDFLAGS@
-LDLIBS = @LIBS@
+LDLIBS = @LIBS@ @DEPS_LIBS@
 INSTALL = @INSTALL@
 DEFS = @DEFS@ \
 	-DTARGET_$(CPU) \

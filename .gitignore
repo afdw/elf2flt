@@ -29,3 +29,4 @@ Makefile
 /flthdr
 /ld-elf2flt
 /ld-elf2flt.sh
+/bfd-headers

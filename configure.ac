@@ -1,5 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(elf2flt.c)
+AC_INIT
+AC_CONFIG_SRCDIR([elf2flt.c])
 
 AC_ARG_WITH(zlib-prefix,
 	AS_HELP_STRING([--with-zlib-prefix=<dir>], [path to installed zlib]),
@@ -199,10 +200,6 @@ dnl int getopt(int, char * const [], const char *) __asm("_" "getopt" "$UNIX2003
 AC_CHECK_LIB(c, malloc, LIBS="-lc $LIBS")
 AC_CHECK_LIB(dl, dlopen, LIBS="$LIBS -ldl")
 
-dnl Checks for header files.
-AC_HEADER_STDC
-AC_CHECK_HEADERS(fcntl.h unistd.h bfd.h)
-
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 
@@ -236,10 +233,7 @@ if test "$binutils_build_dir" != "NONE"; then
     CFLAGS="-I$binutils_include_dir -I$bfd_include_dir $CFLAGS"
 fi
 
-AC_TRY_COMPILE([#include <bfd.h>],
- [const asection *sec; bfd_section_size(sec);],
- bfd_section_api_takes_bfd=no,
- bfd_section_api_takes_bfd=yes)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <bfd.h>]], [[const asection *sec; bfd_section_size(sec);]])],[bfd_section_api_takes_bfd=no],[bfd_section_api_takes_bfd=yes])
 if test "$bfd_section_api_takes_bfd" = "yes" ; then
   AC_DEFINE(HAVE_BFD_SECTION_API_TAKES_BFD, 1,
    [define to 1 for binutils < 2.34])
@@ -251,6 +245,8 @@ if test "$GCC" = yes ; then
 		CFLAGS="-Werror -Wno-error=unused-label $CFLAGS"
 	fi
 fi
+
+PKG_CHECK_MODULES([DEPS], [glib-2.0 >= 2.24.1])
 
 dnl Subsitute values
 AC_SUBST(target)
@@ -270,5 +266,6 @@ AC_SUBST(always_reloc_text)
 AC_SUBST(SYMBOL_PREFIX)
 AC_SUBST(HAVE_BFD_XTENSA_PDIFF_RELOCS)
 
-AC_OUTPUT(ld-elf2flt.sh:ld-elf2flt.in Makefile elf2flt.ld)
+AC_CONFIG_FILES([ld-elf2flt.sh:ld-elf2flt.in Makefile elf2flt.ld])
+AC_OUTPUT
 

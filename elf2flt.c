@@ -94,6 +94,8 @@ const char *elf2flt_progname;
 #include "flat.h"     /* Binary flat header description                      */
 #include "compress.h"
 
+#include <glib.h>
+
 #ifdef TARGET_e1
 #include <e1.h>
 #endif
@@ -231,18 +233,44 @@ dump_symbols(asymbol **symbol_table, long number_of_symbols)
 
 
 #if !defined TARGET_e1 && !defined TARGET_bfin
-static long
-get_symbol_offset(char *name, asection *sec, asymbol **symbol_table, long number_of_symbols)
+typedef struct {
+  const char *name;
+  asection *sec;
+} cache_key;
+
+static guint cache_key_hash(cache_key *ck) {
+  return g_str_hash(ck->name) ^ g_direct_hash(ck->sec);
+}
+
+static gboolean cache_key_equal(cache_key *ck1, cache_key *ck2) {
+  return g_str_equal(ck1->name, ck2->name) && ck1->sec == ck2->sec;
+}
+
+static GHashTable*
+cache_init(asymbol **symbol_table, long number_of_symbols)
 {
+  GHashTable *cache = g_hash_table_new((GHashFunc) cache_key_hash, (GEqualFunc) cache_key_equal);
   long i;
   for (i=0; i<number_of_symbols; i++) {
-    if (symbol_table[i]->section == sec) {
-      if (!strcmp(symbol_table[i]->name, name)) {
-        return symbol_table[i]->value;
-      }
-    }
+    cache_key *ck = malloc(sizeof(cache_key));
+    ck->name = symbol_table[i]->name;
+    ck->sec = symbol_table[i]->section;
+    long *cv = malloc(sizeof(long));
+    *cv = symbol_table[i]->value;
+    g_hash_table_replace(cache, ck, cv);
   }
-  return -1;
+  return cache;
+}
+
+static long
+get_symbol_offset(char *name, asection *sec, GHashTable *cache)
+{
+  cache_key *ck = malloc(sizeof(cache_key));
+  ck->name = name;
+  ck->sec = sec;
+  long *cv = g_hash_table_lookup(cache, ck);
+  free(ck);
+  return cv ? *cv : -1;
 }
 #endif
 
@@ -397,6 +425,8 @@ output_relocs (
 
   if (0)
     dump_symbols(symbols, number_of_symbols);
+
+  GHashTable *cache = cache_init(symbols, number_of_symbols);
 
   *n_relocs = 0;
   flat_relocs = NULL;
@@ -554,7 +584,7 @@ output_relocs (
 			addstr[0] = 0;
 #if !defined TARGET_e1 && !defined TARGET_bfin
   			if ((sym_addr = get_symbol_offset((char *) sym_name,
-			    sym_section, symbols, number_of_symbols)) == -1) {
+			    sym_section, cache)) == -1) {
 				sym_addr = 0;
 			}
 #else
@@ -843,6 +873,14 @@ output_relocs (
 				case R_RISCV_ADD64:
 				case R_RISCV_SUB32:
 				case R_RISCV_SUB64:
+				case R_RISCV_RELAX:
+				case R_RISCV_NONE:
+				case R_RISCV_SUB6:
+				case R_RISCV_SUB8:
+				case R_RISCV_SUB16:
+				case R_RISCV_SET6:
+				case R_RISCV_SET8:
+				case R_RISCV_SET16:
 					continue;
 				case R_RISCV_32:
 				case R_RISCV_64:
@@ -880,6 +918,8 @@ output_relocs (
 				bad_resolved_reloc:
 					printf("ERROR: reloc type %s unsupported in this context\n",
 					       q->howto->name);
+					printf("  NAME=%s  SECTION=%s  VALUE=0x%"BFD_VMA_FMT"x\n",
+					       sym_name, section_name, (*(q->sym_ptr_ptr))->value);
 					bad_relocs++;
 					break;
 				}
@@ -1812,7 +1852,7 @@ int main(int argc, char *argv[])
 	    sizeof(hdr));
 
 #ifndef TARGET_e1
-  stack = 4096;
+  stack = 4096 * 128;
 #else /* We need plenty of stack for both of them (Aggregate and Register) */
   stack = 0x2020;
 #endif
@@ -1915,12 +1955,18 @@ int main(int argc, char *argv[])
 
     if ((s->flags & SEC_CODE) ||
 	ro_reloc_data_section_should_be_in_text(s)) {
+      if (verbose)
+        printf("TEXT += %s\n", s->name);
       vma = &text_vma;
       len = &text_len;
     } else if (s->flags & SEC_DATA) {
+      if (verbose)
+        printf("DATA += %s\n", s->name);
       vma = &data_vma;
       len = &data_len;
     } else if (s->flags & SEC_ALLOC) {
+      if (verbose)
+        printf("BSS += %s\n", s->name);
       vma = &bss_vma;
       len = &bss_len;
     } else

@@ -281,7 +281,7 @@ static int do_final_link(void)
 							break;
 						if (streqn(ptr, "RELOC")) {
 							flag_move_data = 0;
-							fprintf(stderr, "warning: .rodata section contains relocations");
+							fprintf(stderr, "warning: .rodata section contains relocations\n");
 							break;
 						} else
 							ptr++;
@@ -346,6 +346,7 @@ static int do_final_link(void)
 				script = NULL;
 		}
 	}
+
 	/* And process it if we can -- if we can't find it, the user must
 	   know what they are doing.  */
 	if (script) {
@@ -534,9 +535,9 @@ int main(int argc, char *argv[])
 
 	xmalloc_set_program_name(elf2flt_progname);
 
-	linker = concat(tooldir, "ld.real", have_exe, NULL);
-	elf2flt = concat(tooldir, "elf2flt", have_exe, NULL);
-	nm = concat(tooldir, "nm", have_exe, NULL);
+	linker = concat(bindir, TARGET_ALIAS "-ld", have_exe, NULL);
+	elf2flt = concat(bindir, TARGET_ALIAS "-elf2flt", have_exe, NULL);
+	nm = concat(bindir, TARGET_ALIAS "-nm", have_exe, NULL);
 	objdump = concat(bindir, TARGET_ALIAS "-objdump", have_exe, NULL);
 	objcopy = concat(bindir, TARGET_ALIAS "-objcopy", have_exe, NULL);
 
